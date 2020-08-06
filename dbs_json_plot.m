@@ -154,25 +154,37 @@ for jsonfile = filelist
     
     if isfield(dbsdata, 'BrainSenseTimeDomain')
 
-        ch1=dbsdata.BrainSenseTimeDomain(1).Channel;
+        channels = unique({dbsdata.BrainSenseTimeDomain.Channel});
+        
+        ch1=channels{1};
         ch1=split(replace(ch1,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'_'});
         ch1=[ch1{3}(1) ch1{1} '+' ch1{3}(1) ch1{2}];
 
-        ch2=dbsdata.BrainSenseTimeDomain(2).Channel;
+        ch2=channels{2};
         ch2=split(replace(ch2,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'_'});
-        ch2=[ch2{3}(1) ch2{1} '+' ch2{3}(1) ch2{2}];
+        ch2=[ch2{3}(1) ch2{1} '+' ch2{3}(1) ch2{2}];     
         
+        ch_labels = {ch1 ch2};
+
+        clear eegtables
+        eegtables = {timetable,timetable};
+        for i = 1:length(dbsdata.BrainSenseTimeDomain)
+            ch = dbsdata.BrainSenseTimeDomain(i).Channel;
+            chnum = find(strcmp(channels,ch));
+            start_time = datetime(dbsdata.BrainSenseTimeDomain(i).FirstPacketDateTime, 'InputFormat', 'uuuu-MM-dd''T''HH:mm:ss.SSS''Z''','TimeZone','UTC');
+            start_time.TimeZone = 'local';
+            fs = dbsdata.BrainSenseTimeDomain(i).SampleRateInHz;
+            dt = seconds(1/fs);
+            ns = length(dbsdata.BrainSenseTimeDomain(i).TimeDomainData);
+            t = start_time + (0:dt:((ns-1)*dt));
+            tabletoappend = timetable(t', dbsdata.BrainSenseTimeDomain(i).TimeDomainData, 'VariableNames', ch_labels(chnum));
+            eegtables{chnum} = [eegtables{chnum};tabletoappend];
+        end
+        eegtable = synchronize(eegtables{:});
+                       
         figure
+        
         subplot(3,1,1)
-        start_time = datetime(dbsdata.BrainSenseTimeDomain(1).FirstPacketDateTime, 'InputFormat', 'uuuu-MM-dd''T''HH:mm:ss.SSS''Z''','TimeZone','UTC');
-        start_time.TimeZone = 'local';
-        fs = dbsdata.BrainSenseTimeDomain(1).SampleRateInHz;
-        dt = seconds(1/fs);
-        ns = length(dbsdata.BrainSenseTimeDomain(1).TimeDomainData); % assume both sides are same length
-        t = start_time + (0:dt:((ns-1)*dt));
-        eegtable = timetable(t', dbsdata.BrainSenseTimeDomain(1).TimeDomainData,...
-                                 dbsdata.BrainSenseTimeDomain(2).TimeDomainData,...
-                                'VariableNames',{ch1, ch2});
         s = stackedplot(eegtable);
         s.AxesProperties(1).YLimits = [-100 100];
         s.AxesProperties(2).YLimits = [-100 100];
@@ -185,14 +197,14 @@ for jsonfile = filelist
         a2=gca;
         
         subplot(6,1,5)
-        spectrogram(dbsdata.BrainSenseTimeDomain(1).TimeDomainData,kaiser(256,5),50,0:1:125,250,'yaxis')
+        spectrogram(eegtable.(1),kaiser(256,5),50,0:1:125,250,'yaxis')
         caxis(gca,[-20 20])
         colormap(gcf,'parula')
         a5=gca;
         title(ch1)
         
         subplot(6,1,6)
-        spectrogram(dbsdata.BrainSenseTimeDomain(2).TimeDomainData,kaiser(256,5),50,0:1:125,250,'yaxis')
+        spectrogram(eegtable.(2),kaiser(256,5),50,0:1:125,250,'yaxis')
         caxis(gca,[-20 20])
         a6=gca;
         title(ch2)
@@ -200,5 +212,69 @@ for jsonfile = filelist
 
         linkaxes([a5,a6],'x')
     end
+    
+    if isfield(dbsdata, 'IndefiniteStreaming')
+
+        channels = unique({dbsdata.IndefiniteStreaming.Channel});
+
+        ch_labels = cell(1,length(channels));
+        for i = 1:length(channels)
+            ch1=channels{i};
+            ch1=split(replace(ch1,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'_'});
+            ch1=[ch1{3}(1) ch1{1} '+' ch1{3}(1) ch1{2}];
+            ch_labels{i} = ch1;
+        end
+
+        clear eegtables
+        eegtables = repmat({timetable},1,length(channels));
+        for i = 1:length(dbsdata.IndefiniteStreaming)
+            ch = dbsdata.IndefiniteStreaming(i).Channel;
+            chnum = find(strcmp(channels,ch));
+            start_time = datetime(dbsdata.IndefiniteStreaming(i).FirstPacketDateTime, 'InputFormat', 'uuuu-MM-dd''T''HH:mm:ss.SSS''Z''','TimeZone','UTC');
+            start_time.TimeZone = 'local';
+            fs = dbsdata.IndefiniteStreaming(i).SampleRateInHz;
+            dt = seconds(1/fs);
+            ns = length(dbsdata.IndefiniteStreaming(i).TimeDomainData);
+            t = start_time + (0:dt:((ns-1)*dt));
+            tabletoappend = timetable(t', dbsdata.IndefiniteStreaming(i).TimeDomainData, 'VariableNames', ch_labels(chnum));
+            eegtables{chnum} = [eegtables{chnum};tabletoappend];
+        end
+        eegtable = synchronize(eegtables{:});
+           
+        eegtable = eegtable(:,sort(eegtable.Properties.VariableNames));
+        
+        figure
+                
+        subplot(3,1,1)
+        s = stackedplot(eegtable);
+        for i=1:length(s.AxesProperties)
+            s.AxesProperties(i).YLimits = [-100 100];
+        end
+        s.XLimits = [start_time, start_time + seconds(10)];
+
+        subplot(3,1,2)
+        s = stackedplot(eegtable);
+        s.AxesProperties(1).YLimits = [-100 100];
+        s.AxesProperties(2).YLimits = [-100 100];
+        a2=gca;
+        
+        subplot(6,1,5)
+        spectrogram(mean(eegtable(:, startsWith(eegtable.Properties.VariableNames,'L')).Variables,2),kaiser(256,5),50,0:1:125,250,'yaxis')
+        caxis(gca,[-20 20])
+        colormap(gcf,'parula')
+        a5=gca;
+        title('Left')
+        
+        subplot(6,1,6)
+        spectrogram(mean(eegtable(:, startsWith(eegtable.Properties.VariableNames,'R')).Variables,2),kaiser(256,5),50,0:1:125,250,'yaxis')
+        caxis(gca,[-20 20])
+        a6=gca;
+        title('Right')
+        
+        sgtitle([patient.name ' EEG streamed in clinic'])
+        
+        linkaxes([a5,a6],'x')
+    end
+    
     
  end
