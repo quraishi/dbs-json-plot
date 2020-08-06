@@ -1,0 +1,5 @@
+.jsondir
+*.asv
+*.m~
+*.mex*
+*.autosave
