@@ -123,11 +123,11 @@ for jsonfile = filelist
 
         ch1=dbsdata.Groups.Initial.ProgramSettings.SensingChannel(1).SensingSetup.ChannelSignalResult.Channel;
         ch1=split(replace(ch1,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'.','_'});
-        ch1=[ch1{4}(1) ch1{2} '-' ch1{4}(1) ch1{3}];
+        ch1=[ch1{4}(1) ch1{2} '+' ch1{4}(1) ch1{3}];
 
         ch2=dbsdata.Groups.Initial.ProgramSettings.SensingChannel(2).SensingSetup.ChannelSignalResult.Channel;
         ch2=split(replace(ch2,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'.','_'});
-        ch2=[ch2{4}(1) ch2{2} '-' ch2{4}(1) ch2{3}];
+        ch2=[ch2{4}(1) ch2{2} '+' ch2{4}(1) ch2{3}];
 
         if numlogs > 0
             trendtable = timetable;
@@ -145,7 +145,7 @@ for jsonfile = filelist
             yl=max(s.AxesProperties(1).YLimits(2),s.AxesProperties(2).YLimits(2));
             s.AxesProperties(1).YLimits = [0 yl];
             s.AxesProperties(2).YLimits = [0 yl];
-            title([patient.name ' Trend'])
+            sgtitle([patient.name ' Trend'])
                         
         end
     end
@@ -153,6 +153,15 @@ for jsonfile = filelist
     %% "BrainSense Time Domain" - EEG streamed in clinic
     
     if isfield(dbsdata, 'BrainSenseTimeDomain')
+
+        ch1=dbsdata.BrainSenseTimeDomain(1).Channel;
+        ch1=split(replace(ch1,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'_'});
+        ch1=[ch1{3}(1) ch1{1} '+' ch1{3}(1) ch1{2}];
+
+        ch2=dbsdata.BrainSenseTimeDomain(2).Channel;
+        ch2=split(replace(ch2,{'ZERO','ONE','TWO','THREE'},{'0','1','2','3'}),{'_'});
+        ch2=[ch2{3}(1) ch2{1} '+' ch2{3}(1) ch2{2}];
+        
         figure
         subplot(3,1,1)
         start_time = datetime(dbsdata.BrainSenseTimeDomain(1).FirstPacketDateTime, 'InputFormat', 'uuuu-MM-dd''T''HH:mm:ss.SSS''Z''','TimeZone','UTC');
@@ -161,7 +170,9 @@ for jsonfile = filelist
         dt = seconds(1/fs);
         ns = length(dbsdata.BrainSenseTimeDomain(1).TimeDomainData); % assume both sides are same length
         t = start_time + (0:dt:((ns-1)*dt));
-        eegtable = timetable(t', dbsdata.BrainSenseTimeDomain(1).TimeDomainData, dbsdata.BrainSenseTimeDomain(2).TimeDomainData,'VariableNames',{'Left','Right'});
+        eegtable = timetable(t', dbsdata.BrainSenseTimeDomain(1).TimeDomainData,...
+                                 dbsdata.BrainSenseTimeDomain(2).TimeDomainData,...
+                                'VariableNames',{ch1, ch2});
         s = stackedplot(eegtable);
         s.AxesProperties(1).YLimits = [-100 100];
         s.AxesProperties(2).YLimits = [-100 100];
@@ -178,15 +189,15 @@ for jsonfile = filelist
         caxis(gca,[-20 20])
         colormap(gcf,'parula')
         a5=gca;
-        title('Left')
+        title(ch1)
         
         subplot(6,1,6)
         spectrogram(dbsdata.BrainSenseTimeDomain(2).TimeDomainData,kaiser(256,5),50,0:1:125,250,'yaxis')
-        title('Right')
         caxis(gca,[-20 20])
         a6=gca;
+        title(ch2)
         sgtitle([patient.name ' EEG streamed in clinic'])
-        
+
         linkaxes([a5,a6],'x')
     end
     
